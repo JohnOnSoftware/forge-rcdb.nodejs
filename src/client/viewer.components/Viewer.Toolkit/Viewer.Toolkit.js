@@ -1,11 +1,11 @@
 
 
-export default class ViewerToolkit {
+export default class Toolkit {
 
-  ///////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////
   //
   //
-  ///////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////
   static guid(format = 'xxxxxxxxxxxx') {
 
     var d = new Date().getTime();
@@ -110,10 +110,10 @@ export default class ViewerToolkit {
     return items
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   // Toolbar button
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static createButton(id, className, tooltip, handler) {
 
     var button = new Autodesk.Viewing.UI.Button(id)
@@ -129,10 +129,10 @@ export default class ViewerToolkit {
     return button
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   // Control group
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static createControlGroup (viewer, ctrlGroupName) {
 
     var viewerToolbar = viewer.getToolbar(true)
@@ -148,10 +148,10 @@ export default class ViewerToolkit {
     }
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static getLeafNodes (model, dbIds) {
 
     return new Promise((resolve, reject)=>{
@@ -197,24 +197,28 @@ export default class ViewerToolkit {
     })
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   // get node fragIds
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static getFragIds (model, dbIds) {
 
     return new Promise(async(resolve, reject) => {
 
       try {
 
-        const dbIdArray = Array.isArray(dbIds) ? dbIds : [dbIds]
-
         const instanceTree = model.getData().instanceTree
 
-        const leafIds = await ViewerToolkit.getLeafNodes(
-          model, dbIdArray)
+        dbIds = dbIds || instanceTree.getRootId()
 
-        let fragIds = []
+        const dbIdArray = Array.isArray(dbIds)
+          ? dbIds : [dbIds]
+
+        const leafIds =
+          await Toolkit.getLeafNodes(
+            model, dbIdArray)
+
+        const fragIds = []
 
         for(var i=0; i< leafIds.length; ++i) {
 
@@ -233,10 +237,10 @@ export default class ViewerToolkit {
     })
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   // get leaf node fragIds
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static getLeafFragIds (model, leafId) {
 
     const instanceTree = model.getData().instanceTree
@@ -251,10 +255,10 @@ export default class ViewerToolkit {
     return fragIds
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   // Node bounding box
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static getWorldBoundingBox (model, dbId) {
 
     return new Promise(async(resolve, reject) => {
@@ -262,7 +266,7 @@ export default class ViewerToolkit {
       try {
 
         var fragIds =
-          await ViewerToolkit.getFragIds(
+          await Toolkit.getFragIds(
             model, dbId)
 
         if (!fragIds.length) {
@@ -290,10 +294,10 @@ export default class ViewerToolkit {
     })
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   // Gets properties from component
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static getProperties (model, dbId, requestedProps = null) {
 
     return new Promise((resolve, reject) => {
@@ -311,7 +315,7 @@ export default class ViewerToolkit {
 
           const propTasks = requestedProps.map((displayName) => {
 
-            return ViewerToolkit.getProperty(
+            return Toolkit.getProperty(
               model, dbIdInt, displayName, 'Not Available')
           })
 
@@ -322,7 +326,7 @@ export default class ViewerToolkit {
 
         } else {
 
-          model.getProperties(dbIdInt, function(result) {
+          model.getProperties(dbIdInt, (result) => {
 
             if (result.properties) {
 
@@ -341,10 +345,10 @@ export default class ViewerToolkit {
     })
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static getProperty (model, dbId, displayName, defaultValue) {
 
     return new Promise((resolve, reject) => {
@@ -396,10 +400,10 @@ export default class ViewerToolkit {
     })
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   // Gets all existing properties from component  dbIds
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static getPropertyList (viewer, dbIds, model = null) {
 
     return new Promise(async(resolve, reject) => {
@@ -410,7 +414,7 @@ export default class ViewerToolkit {
 
         var propertyTasks = dbIds.map((dbId) => {
 
-          return ViewerToolkit.getProperties(model, dbId)
+          return Toolkit.getProperties(model, dbId)
         })
 
         var propertyResults = await Promise.all(
@@ -438,10 +442,10 @@ export default class ViewerToolkit {
     })
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static getBulkPropertiesAsync (model, dbIds, propFilter) {
 
     return new Promise(async(resolve, reject) => {
@@ -487,17 +491,17 @@ export default class ViewerToolkit {
     })
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   // Maps components by property
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static mapComponentsByProp (model, propFilter, components, defaultProp) {
 
     return new Promise(async (resolve, reject) => {
 
       try {
 
-        const results = await ViewerToolkit.getBulkPropertiesAsync(
+        const results = await Toolkit.getBulkPropertiesAsync(
           model, components, propFilter)
 
         const propertyResults = results.map((result) => {
@@ -570,10 +574,10 @@ export default class ViewerToolkit {
     return Promise.all(tasks);
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static drawBox(viewer, min, max, material = null) {
 
     var _material = material;
@@ -665,13 +669,14 @@ export default class ViewerToolkit {
     return lines
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   // Set component material
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static async setMaterial(model, dbId, material) {
 
-    const fragIds = await ViewerToolkit.getFragIds(model, dbId)
+    const fragIds = await Toolkit.getFragIds(
+      model, dbId)
 
     const fragList = model.getFragmentList()
 
@@ -681,10 +686,10 @@ export default class ViewerToolkit {
     })
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   // Recursively builds the model tree
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static buildModelTree (model, createNodeFunc = null){
 
     //builds model tree recursively
@@ -708,32 +713,32 @@ export default class ViewerToolkit {
               name: instanceTree.getNodeName(childId)
             }
 
-            node.children.push(childNode);
+            node.children.push(childNode)
           }
 
-          _buildModelTreeRec(childNode);
-        });
+          _buildModelTreeRec(childNode)
+        })
     }
 
     //get model instance tree and root component
-    var instanceTree = model.getData().instanceTree;
+    var instanceTree = model.getData().instanceTree
 
-    var rootId = instanceTree.getRootId();
+    var rootId = instanceTree.getRootId()
 
     var rootNode = {
       dbId: rootId,
       name: instanceTree.getNodeName(rootId)
     }
 
-    _buildModelTreeRec(rootNode);
+    _buildModelTreeRec(rootNode)
 
-    return rootNode;
+    return rootNode
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   // Recursively execute task on model tree
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static executeTaskOnModelTree (model, task) {
 
     var taskResults = [];
@@ -759,10 +764,10 @@ export default class ViewerToolkit {
     return taskResults;
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static hide (viewer, dbIds = [], model = null) {
 
     try {
@@ -792,10 +797,10 @@ export default class ViewerToolkit {
     }
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static show (viewer, dbIds = [], model = null) {
 
     try {
@@ -820,10 +825,10 @@ export default class ViewerToolkit {
     }
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static async isolateFull (viewer, dbIds = [], model = null) {
 
     try {
@@ -834,10 +839,10 @@ export default class ViewerToolkit {
 
       const targetIds = Array.isArray(dbIds) ? dbIds : [dbIds]
 
-      const targetLeafIds = await ViewerToolkit.getLeafNodes(
+      const targetLeafIds = await Toolkit.getLeafNodes(
         model, targetIds)
 
-      const leafIds = await ViewerToolkit.getLeafNodes (model)
+      const leafIds = await Toolkit.getLeafNodes (model)
 
       const leafTasks = leafIds.map((dbId) => {
 
@@ -861,10 +866,10 @@ export default class ViewerToolkit {
     }
   }
 
-  ///////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////
   // Rotate selected fragments
   //
-  ///////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////
   static rotateFragments (viewer, fragIds, axis, angle, center, model = null) {
 
     var quaternion = new THREE.Quaternion()
@@ -898,11 +903,11 @@ export default class ViewerToolkit {
     })
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   // A fix for viewer.restoreState
   // that also restores pivotPoint
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   static restoreStateWithPivot (
     viewer, state, filter = null, immediate = false) {
 
@@ -929,10 +934,137 @@ export default class ViewerToolkit {
     viewer.restoreState(state, filter, immediate)
   }
 
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
+  static getComponentsByParentName (name, model) {
+
+    const instanceTree = model.getData().instanceTree
+
+    const rootId = instanceTree.getRootId()
+
+    let parentId = 0
+
+    instanceTree.enumNodeChildren(rootId,
+      (childId) => {
+
+        const nodeName = instanceTree.getNodeName(childId)
+
+        if (nodeName.indexOf(name) > -1) {
+
+          parentId = childId
+        }
+      })
+
+    return parentId > 0
+      ? Toolkit.getLeafNodes(model, parentId)
+      : []
+  }
+
+  /////////////////////////////////////////////////////////
+  // Creates a standard THREE.Mesh out of a Viewer
+  // component
+  //
+  /////////////////////////////////////////////////////////
+  static buildComponentMesh (
+    viewer, model, dbId, faceFilter, material) {
+
+    const vertexArray = []
+
+    // first we assume the component dbId is a leaf
+    // component: ie has no child so contains
+    // geometry. This util method will return all fragIds
+    // associated with that specific dbId
+    const fragIds = Toolkit.getLeafFragIds(model, dbId)
+
+    let matrixWorld = null
+
+    const meshGeometry = new THREE.Geometry()
+
+    fragIds.forEach((fragId) => {
+
+      // for each fragId, get the proxy in order to access
+      // THREE geometry
+      const renderProxy =
+        viewer.impl.getRenderProxy(
+          model, fragId)
+
+      matrixWorld = matrixWorld ||
+      renderProxy.matrixWorld
+
+      const geometry = renderProxy.geometry
+
+      const attributes = geometry.attributes
+
+      const positions = geometry.vb
+        ? geometry.vb
+        : attributes.position.array
+
+      const indices = attributes.index.array || geometry.ib
+
+      const stride = geometry.vb ? geometry.vbstride : 3
+
+      const offsets = [{
+        count: indices.length,
+        index: 0,
+        start: 0
+      }]
+
+      for (var oi = 0, ol = offsets.length; oi < ol; ++oi) {
+
+        var start = offsets[oi].start
+        var count = offsets[oi].count
+        var index = offsets[oi].index
+
+        for (var i = start, il = start + count; i < il; i += 3) {
+
+          const a = index + indices[i]
+          const b = index + indices[i + 1]
+          const c = index + indices[i + 2]
+
+          const vA = new THREE.Vector3()
+          const vB = new THREE.Vector3()
+          const vC = new THREE.Vector3()
+
+          vA.fromArray(positions, a * stride)
+          vB.fromArray(positions, b * stride)
+          vC.fromArray(positions, c * stride)
+
+          if (!faceFilter || faceFilter(vA, vB, vC)) {
+
+            const faceIdx = meshGeometry.vertices.length
+
+            meshGeometry.vertices.push(vA)
+            meshGeometry.vertices.push(vB)
+            meshGeometry.vertices.push(vC)
+
+            const face = new THREE.Face3(
+              faceIdx, faceIdx + 1, faceIdx + 2)
+
+            meshGeometry.faces.push(face)
+          }
+        }
+      }
+    })
+
+    meshGeometry.applyMatrix(matrixWorld)
+    meshGeometry.computeFaceNormals()
+    meshGeometry.computeVertexNormals()
+
+    // creates THREE.Mesh
+    const mesh = new THREE.Mesh(
+      meshGeometry, material)
+
+    mesh.dbId = dbId
+
+    return mesh
+  }
+
+  /////////////////////////////////////////////////////////
+  //
+  //
+  /////////////////////////////////////////////////////////
   static selectiveExplode (viewer, scale, excludedFragIds, model = null) {
 
     model = model || viewer.activeModel || viewer.model

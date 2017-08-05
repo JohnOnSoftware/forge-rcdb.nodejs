@@ -14,6 +14,7 @@ import util from 'util'
 import path from 'path'
 
 //Endpoints
+import DerivativesAPI from './api/endpoints/derivatives'
 import MaterialAPI from './api/endpoints/materials'
 import ExtractAPI from './api/endpoints/extract'
 import SocketAPI from './api/endpoints/socket'
@@ -21,6 +22,7 @@ import ConfigAPI from './api/endpoints/config'
 import ModelAPI from './api/endpoints/models'
 import ForgeAPI from './api/endpoints/forge'
 import MetaAPI from './api/endpoints/meta'
+import DMAPI from './api/endpoints/dm'
 
 //Services
 import DerivativesSvc from './api/services/DerivativesSvc'
@@ -33,6 +35,7 @@ import UploadSvc from './api/services/UploadSvc'
 import ForgeSvc from './api/services/ForgeSvc'
 import ModelSvc from './api/services/ModelSvc'
 import OssSvc from './api/services/OssSvc'
+import DMSvc from './api/services/DMSvc'
 
 //Config (NODE_ENV dependant)
 import config from'c0nfig'
@@ -132,17 +135,34 @@ const uploadSvc = new UploadSvc({
 const extractorSvc = new ExtractorSvc()
 
 const ossSvc = new OssSvc()
+const dmSvc = new DMSvc()
 
 ServiceManager.registerService(derivativesSvc)
 ServiceManager.registerService(extractorSvc)
 ServiceManager.registerService(uploadSvc)
 ServiceManager.registerService(forgeSvc)
 ServiceManager.registerService(ossSvc)
+ServiceManager.registerService(dmSvc)
+
+/////////////////////////////////////////////////////////////////////
+// Token getters
+//
+/////////////////////////////////////////////////////////////////////
+const get2LeggedToken = () => {
+
+  return forgeSvc.get2LeggedToken()
+}
+
+const get3LeggedToken = (session) => {
+
+  return forgeSvc.get3LeggedTokenMaster(session)
+}
 
 /////////////////////////////////////////////////////////////////////
 // API Routes setup
 //
 /////////////////////////////////////////////////////////////////////
+app.use('/api/derivatives/3legged', DerivativesAPI(get3LeggedToken))
 app.use('/api/materials', MaterialAPI())
 app.use('/api/extract',   ExtractAPI())
 app.use('/api/socket',    SocketAPI())
@@ -150,6 +170,7 @@ app.use('/api/config',    ConfigAPI())
 app.use('/api/models',    ModelAPI())
 app.use('/api/forge',     ForgeAPI())
 app.use('/api/meta',      MetaAPI())
+app.use('/api/dm',        DMAPI())
 
 /////////////////////////////////////////////////////////////////////
 // Viewer GET Proxy
@@ -163,7 +184,7 @@ app.get('/lmv-proxy-2legged/*', proxy2legged)
 
 const proxy3legged = lmvProxySvc.generateProxy(
   'lmv-proxy-3legged',
-  (session) => forgeSvc.get3LeggedToken(session))
+  (session) => forgeSvc.get3LeggedTokenMaster(session))
 
 app.get('/lmv-proxy-3legged/*', proxy3legged)
 

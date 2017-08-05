@@ -154,7 +154,7 @@ export default class TranslateTool extends EventsEmitter {
           return
         }
 
-        if(event.selections && event.selections.length) {
+        if (event.selections.length) {
 
           var selection = event.selections[0]
 
@@ -225,6 +225,8 @@ export default class TranslateTool extends EventsEmitter {
 
     this.initializeSelection(
       this._hitPoint)
+
+    this.emit('selection', selection)
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -273,6 +275,8 @@ export default class TranslateTool extends EventsEmitter {
 
       this._selectedFragProxyMap[fragId] = fragProxy
     })
+
+    this._viewer.impl.sceneUpdated(true)
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -297,6 +301,8 @@ export default class TranslateTool extends EventsEmitter {
         this.onCameraChanged)
 
       this._viewer.impl.sceneUpdated(true)
+
+      this.emit('selection', null)
     }
   }
 
@@ -330,7 +336,8 @@ export default class TranslateTool extends EventsEmitter {
     this.emit('translate', {
       fragIds: Object.keys(this._selectedFragProxyMap),
       model: this._selection.model,
-      translation: translation
+      translation: translation,
+      dbIds: this._dbIds
     })
 
     this._viewer.impl.sceneUpdated(true)

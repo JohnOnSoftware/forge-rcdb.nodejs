@@ -78,6 +78,14 @@
   float: left;
 }
 
+.hfdm .clipboard-btn {
+  border: 1px solid #cdcdcd;
+  background: whitesmoke;
+  border-radius: 4px;
+  margin-left: 8px;
+  color: #8c8c8c;
+}
+
 /////////////////////////////////////////////////////////
 // title controls
 //
@@ -114,20 +122,4 @@
 .hfdm-controls > button > span {
   pointer-events: none;
   color: #9b9b9b
-}
-
-///////////////////////////////////////////////////////////
-//
-//
-///////////////////////////////////////////////////////////
-.login {
-  background: #f3f3f3;
-}
-
-.login div {
-  background: transparent !important;
-}
-
-.login div:first-child {
-  border: 2px solid #f3a81e;
 }

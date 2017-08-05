@@ -2,7 +2,7 @@
     "_id" : ObjectId("57efaead77c8eb0a560ef465"), 
     "urn" : "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6bGVlZnNtcC1mb3JnZS9zZWF0LmR3Zg", 
     "name" : "Car Seat", 
-    "path" : "resources/models/seat/0.svf", 
+    "path" : "resources/models/dev/seat/0.svf", 
     "env" : "Local", 
     "materialCategories" : [
         "Material"
@@ -68,7 +68,7 @@
     ], 
     "states" : [
         {
-            "seedURN" : "resources/models/seat/0.svf", 
+            "seedURN" : "resources/models/dev/seat/0.svf", 
             "objectSet" : [
                 {
                     "id" : [
@@ -150,7 +150,7 @@
             "name" : "Sat Nov 05 2016 17:29:32 GMT+0100 (CET)"
         }, 
         {
-            "seedURN" : "resources/models/seat/0.svf", 
+            "seedURN" : "resources/models/dev/seat/0.svf", 
             "objectSet" : [
                 {
                     "id" : [
@@ -232,7 +232,7 @@
             "name" : "Sat Nov 05 2016 17:29:32 GMT+0100 (CET)"
         }, 
         {
-            "seedURN" : "resources/models/seat/0.svf", 
+            "seedURN" : "resources/models/dev/seat/0.svf", 
             "objectSet" : [
                 {
                     "id" : [
@@ -320,7 +320,7 @@
     "_id" : ObjectId("57f3739777c879f48ad54a44"), 
     "urn" : "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6bGVlZnNtcC1mb3JnZS9vZmZpY2UucnZ0", 
     "name" : "Office", 
-    "path" : "resources/models/office/Resource/3D_View/3D/office.svf", 
+    "path" : "resources/models/dev/office/Resource/3D_View/3D/office.svf", 
     "env" : "Local", 
     "materialCategories" : [
         "Base/Arms Material", 
@@ -406,7 +406,7 @@
     "_id" : ObjectId("57efaf0377c8eb0a560ef467"), 
     "urn" : "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6bGVlZnNtcC1mb3JnZS1kZXYvZW5naW5lLmR3Zg", 
     "name" : "Engine", 
-    "path" : "resources/models/engine/0.svf", 
+    "path" : "resources/models/dev/engine/0.svf", 
     "env" : "Local", 
     "materialCategories" : [
         "Material"
@@ -469,7 +469,7 @@
     "_id" : ObjectId("5841e11f540a4d30802763e2"), 
     "urn" : "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6bGVlZnNtcC1mb3JnZS9WOC5kd2Z4", 
     "name" : "V8", 
-    "path" : "resources/models/v8/0.svf", 
+    "path" : "resources/models/dev/v8/0.svf", 
     "env" : "Local", 
     "materialCategories" : [
         "Material"
@@ -528,7 +528,7 @@
     "_id" : ObjectId("583ec7efebfb320e3cef26a5"), 
     "urn" : "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6bGVlZnNtcC1mb3JnZS8yMTAlMjBLaW5nJTIwLSUyMDIwMTUucnZ0", 
     "name" : "210 King", 
-    "path" : "resources/models/210 King/Resource/3D_View/3D/3D.svf", 
+    "path" : "resources/models/dev/210 King/Resource/3D_View/_3D_ 1583181/_3D_.svf", 
     "env" : "Local", 
     "materialCategories" : [
         "Base Material", 

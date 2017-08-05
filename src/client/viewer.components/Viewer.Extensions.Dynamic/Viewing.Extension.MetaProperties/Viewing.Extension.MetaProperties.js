@@ -3,9 +3,11 @@
 // By Philippe Leefsma, Autodesk Inc, April 2017
 //
 ///////////////////////////////////////////////////////////
+import {ReflexContainer, ReflexElement, ReflexSplitter} from 'react-reflex'
 import MultiModelExtensionBase from 'Viewer.MultiModelExtensionBase'
+import Search from './Viewing.Extension.MetaProperties.Search'
 import MetaAPI from './Viewing.Extension.MetaProperties.API'
-import ExtensionBase from 'Viewer.ExtensionBase'
+import {OverlayTrigger, Popover} from 'react-bootstrap'
 import {AddMetaProperty} from './MetaProperty'
 import WidgetContainer from 'WidgetContainer'
 import MetaTreeView from './MetaTreeView'
@@ -29,18 +31,27 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
 
     this.onPropertyDeleted = this.onPropertyDeleted.bind(this)
     this.onPropertyUpdated = this.onPropertyUpdated.bind(this)
-    this.onPropertyAdded = this.onPropertyAdded.bind(this)
     this.onDeleteProperty = this.onDeleteProperty.bind(this)
+    this.onPropertyAdded = this.onPropertyAdded.bind(this)
     this.onEditProperty = this.onEditProperty.bind(this)
     this.onMetaChanged = this.onMetaChanged.bind(this)
     this.onContextMenu = this.onContextMenu.bind(this)
-    this.renderTitle = this.renderTitle.bind(this)
+    this.onSearch = this.onSearch.bind(this)
 
     this.dialogSvc =
       ServiceManager.getService('DialogSvc')
 
     this.socketSvc =
       ServiceManager.getService('SocketSvc')
+
+    this.react = options.react
+	}
+
+	/////////////////////////////////////////////////////////
+	// Load callback
+  //
+  /////////////////////////////////////////////////////////
+	load () {
 
     this.socketSvc.on (
       'meta.propertyDeleted',
@@ -54,18 +65,10 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
       'meta.propertyAdded',
       this.onPropertyAdded)
 
-    this.react = options.react
-	}
-
-	/////////////////////////////////////////////////////////
-	// Load callback
-  //
-  /////////////////////////////////////////////////////////
-	load () {
-
     this.react.setState({
 
       properties: [],
+      search: false,
       model: null,
       dbId: null
 
@@ -73,7 +76,8 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
 
       this.react.pushRenderExtension(this)
 
-      const model = this.viewer.activeModel
+      const model = this.viewer.activeModel ||
+        this.viewer.model
 
       if (model) {
 
@@ -84,7 +88,6 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
     this.viewer.loadDynamicExtension(
       'Viewing.Extension.ContextMenu').then(
         (ctxMenuExtension) => {
-
           ctxMenuExtension.addHandler(
             this.onContextMenu)
         })
@@ -141,7 +144,26 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
   //
   //
   /////////////////////////////////////////////////////////
+  onModelRootLoaded () {
+
+    this.options.loader.show(false)
+  }
+
+  /////////////////////////////////////////////////////////
+  //
+  //
+  /////////////////////////////////////////////////////////
   onObjectTreeCreated (event) {
+
+    const selectors = [
+      '#toolbar-propertiesTool',
+      '#toolbar-zoomTool',
+      '#toolbar-panTool'
+    ]
+
+    selectors.forEach((selector) => {
+      $(selector).remove()
+    })
 
     this.setModel(event.model)
   }
@@ -191,10 +213,6 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
   /////////////////////////////////////////////////////////
   async setModel (model) {
 
-    await this.react.setState({
-      model
-    })
-
     const modelId = model.dbModelId ||
       this.options.dbModel._id
 
@@ -205,6 +223,11 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
 
     this.api = new MetaAPI(
       `${apiUrl}/meta/${database}/${modelId}`)
+
+    await this.react.setState({
+      api: this.api,
+      model
+    })
 
     const instanceTree = model.getData().instanceTree
 
@@ -244,6 +267,30 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
   //
   //
   /////////////////////////////////////////////////////////
+  getNodeData (dbId) {
+
+    return new Promise((resolve, reject) => {
+
+      const {model} = this.react.getState()
+
+      model.getProperties(dbId, (result) => {
+
+        resolve ({
+          externalId: result.externalId,
+          component: result.name
+        })
+
+      }, (error) => {
+
+        reject(error)
+      })
+    })
+  }
+
+  /////////////////////////////////////////////////////////
+  //
+  //
+  /////////////////////////////////////////////////////////
   async loadNodeProperties (dbId, refresh) {
 
     const state = this.react.getState()
@@ -259,6 +306,8 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
       })
     }
 
+    const data = await this.getNodeData(dbId)
+
     const {model} = this.react.getState()
 
     const modelProperties =
@@ -268,16 +317,57 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
     const metaProperties =
       await this.api.getNodeMetaProperties(dbId)
 
-    const properties = [
-      ...modelProperties,
-      ...metaProperties
-    ]
+    const properties = this.buildFinalProperties(
+      modelProperties, metaProperties)
 
     await this.react.setState({
+      externalId: data.externalId,
       guid: this.guid(),
       properties,
       dbId
     })
+  }
+
+  /////////////////////////////////////////////////////////
+  //
+  //
+  /////////////////////////////////////////////////////////
+  buildFinalProperties (
+    modelProperties, metaProperties) {
+
+    let finalModelProperties = [
+      ...modelProperties
+    ]
+
+    const finalMetaProperties =
+      metaProperties.filter((metaProperty) => {
+
+        if (metaProperty.isOverride) {
+
+          const entries = finalModelProperties.entries()
+
+          for (let [idx, modelProperty] of entries) {
+
+            if (modelProperty.displayCategory ===
+                metaProperty.displayCategory &&
+                modelProperty.displayName ===
+                metaProperty.displayName) {
+
+                finalModelProperties.splice(idx, 1)
+                break
+            }
+          }
+
+          return metaProperty.metaType !== 'DeleteOverride'
+        }
+
+        return true
+      })
+
+    return [
+      ...finalModelProperties,
+      ...finalMetaProperties
+    ]
   }
 
   /////////////////////////////////////////////////////////
@@ -291,6 +381,20 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
     if (!model) {
       return
     }
+
+    event.menu.forEach((entry) => {
+
+      const title = entry.title.toLowerCase()
+
+      if (title === 'show all objects') {
+
+        entry.target = () => {
+          Toolkit.isolateFull(
+            this.viewer, [], model)
+          this.viewer.fitToView()
+        }
+      }
+    })
 
     const instanceTree = model.getData().instanceTree
 
@@ -404,8 +508,10 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
 
       if (result === 'OK') {
 
+        const nodeData = await this.getNodeData(dbId)
+
         const metaProperty = Object.assign({},
-          this.metaPropertyEdits, {
+          this.metaPropertyEdits, nodeData, {
             dbId: dbId.toString(),
             id: this.guid()
           })
@@ -452,38 +558,43 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
   //
   //
   /////////////////////////////////////////////////////////
-  onEditProperty (metaProperty) {
+  onEditProperty (metaProperty, isModelOverride) {
 
     return new Promise ((resolve) => {
 
-      const onClose = (result) => {
+      const onClose = async(result) => {
 
         this.dialogSvc.off('dialog.close', onClose)
 
         if (result === 'OK') {
 
           const newMetaProperty = Object.assign({},
-            this.metaPropertyEdits, {
-              dbId: metaProperty.dbId,
-              id: metaProperty.id
-            })
+            metaProperty, this.metaPropertyEdits)
 
           const newMetaPayload = this.buildMetaPayload(
             newMetaProperty)
 
-          if (newMetaProperty.file && metaProperty.fileId) {
+          if (isModelOverride) {
 
-            this.api.deleteResource(metaProperty.fileId)
+            await this.api.addNodeMetaProperty(
+              newMetaPayload)
+
+          } else {
+
+            if (newMetaProperty.file && metaProperty.fileId) {
+
+              this.api.deleteResource(metaProperty.fileId)
+            }
+
+            await this.api.updateNodeMetaProperty(
+              newMetaPayload)
           }
-
-          this.api.updateNodeMetaProperty(
-            newMetaPayload)
 
           this.socketSvc.broadcast (
             'meta.propertyUpdated',
             newMetaPayload)
 
-          resolve (newMetaPayload)
+          return resolve (newMetaPayload)
         }
 
         resolve (false)
@@ -491,16 +602,21 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
 
       this.dialogSvc.on('dialog.close', onClose)
 
+      this.metaPropertyEdits = {}
+
       const dlgProps = Object.assign({}, metaProperty, {
         disableOK: this.dialogSvc.disableOK,
         onChanged: this.onMetaChanged,
         editMode: true
       })
 
+      const override = isModelOverride
+        ? '[Override] ' : ''
+
       this.dialogSvc.setState({
+        title: `Edit Meta Property ${override}...`,
         content: <AddMetaProperty {...dlgProps}/>,
         className: 'meta-property-dlg',
-        title: 'Edit Meta Property ...',
         disableOK: true,
         open: true
       }, true)
@@ -511,27 +627,41 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
   //
   //
   /////////////////////////////////////////////////////////
-  onDeleteProperty (metaProperty) {
+  onDeleteProperty (metaProperty, isModelOverride) {
 
     return new Promise ((resolve) => {
 
-      const onClose = (result) => {
+      const onClose = async(result) => {
 
         this.dialogSvc.off('dialog.close', onClose)
 
         if (result === 'OK') {
 
-          this.api.deleteNodeMetaProperty(
-            metaProperty.id)
+          if (isModelOverride) {
+
+            const metaPayload = Object.assign({},
+              metaProperty, {
+                metaType: 'DeleteOverride',
+                isOverride: true
+              })
+
+            await this.api.addNodeMetaProperty(
+              metaPayload)
+
+          } else {
+
+            await this.api.deleteNodeMetaProperty(
+              metaProperty.id)
+          }
 
           this.socketSvc.broadcast (
             'meta.propertyDeleted',
             metaProperty.dbId)
 
-          resolve (true)
+          return resolve (metaProperty)
         }
 
-        resolve (false)
+        resolve (null)
       }
 
       this.dialogSvc.on('dialog.close', onClose)
@@ -540,13 +670,75 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
         `Are you sure you want to delete`
         + ` <b>${metaProperty.displayName}</b> ?`)
 
+      const override = isModelOverride
+        ? '[Override] ' : ''
+
       this.dialogSvc.setState({
-        title: 'Delete Property ...',
-        content:
-          <div dangerouslySetInnerHTML={{__html: msg}}>
-          </div>,
+        content: <div dangerouslySetInnerHTML={{__html: msg}}/>,
+        title: `Delete Property ${override}...`,
         open: true
       })
+    })
+  }
+
+  /////////////////////////////////////////////////////////
+  //
+  //
+  /////////////////////////////////////////////////////////
+  deleteAllProperties (dbId) {
+
+    return new Promise ((resolve) => {
+
+      const onClose = async(result) => {
+
+        this.dialogSvc.off('dialog.close', onClose)
+
+        if (result === 'OK') {
+
+          await this.api.deleteNodeMetaProperties(dbId)
+
+          this.loadNodeProperties(dbId, true)
+
+          this.socketSvc.broadcast (
+            'meta.propertyDeleted', dbId)
+
+          return resolve (true)
+        }
+
+        resolve (false)
+      }
+
+      this.dialogSvc.on('dialog.close', onClose)
+
+      const {model} = this.react.getState()
+
+      const instanceTree = model.getData().instanceTree
+
+      const nodeName = instanceTree.getNodeName(dbId)
+
+      const msg = DOMPurify.sanitize(
+        `Are you sure you want to delete all custom properties on`
+        + ` <br/><b>${nodeName}</b> ?`)
+
+      this.dialogSvc.setState({
+        content: <div dangerouslySetInnerHTML={{__html: msg}}/>,
+        title: `Delete Component Properties ...`,
+        open: true
+      })
+    })
+  }
+
+
+  /////////////////////////////////////////////////////////
+  //
+  //
+  /////////////////////////////////////////////////////////
+  onSearch () {
+
+    const {search} = this.react.getState()
+
+    this.react.setState({
+      search: !search
     })
   }
 
@@ -563,6 +755,7 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
       await this.react.popRenderExtension(id)
 
       this.react.pushViewerPanel(this, {
+        className: this.className,
         height: 250,
         width: 350
       })
@@ -581,6 +774,8 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
   /////////////////////////////////////////////////////////
   renderTitle (docked) {
 
+    const {dbId, search} = this.react.getState()
+
     const spanClass = docked
       ? 'fa fa-chain-broken'
       : 'fa fa-chain'
@@ -591,6 +786,33 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
           Meta Properties
         </label>
         <div className="meta-properties-controls">
+          <button className={search ? 'active':''}
+            onClick={this.onSearch}
+            title="Search MetaProperties">
+            <span className="fa fa-search" style={{
+              position: 'relative',
+              top: '-1px'
+            }}/>
+          </button>
+          <OverlayTrigger trigger="click"
+            overlay={this.renderPopover()}
+            placement="left"
+            rootClose>
+            <button title="Export MetaProperties">
+              <span className="fa fa-cloud-download"/>
+            </button>
+          </OverlayTrigger>
+          <button onClick={() => this.showAddMetaPropertyDlg(dbId)}
+            title="Add new MetaProperty on component">
+            <span className="fa fa-plus"/>
+          </button>
+          <button onClick={() => this.deleteAllProperties(dbId)}
+            title="Delete all MetaProperties on component">
+            <span className="fa fa-close" style={{
+              position: 'relative',
+              top: '-1px'
+            }}/>
+          </button>
           <button onClick={() => this.setDocking(docked)}
             title="Toggle docking mode">
             <span className={spanClass}/>
@@ -604,22 +826,10 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
   //
   //
   /////////////////////////////////////////////////////////
-  renderControls () {
-
-    return (
-      <div className="controls">
-
-      </div>
-    )
-  }
-
-  /////////////////////////////////////////////////////////
-  //
-  //
-  /////////////////////////////////////////////////////////
   renderTreeView (properties) {
 
-    const {guid, model, dbId} = this.react.getState()
+    const {guid, model, dbId, externalId} =
+      this.react.getState()
 
     const instanceTree = model.getData().instanceTree
 
@@ -627,10 +837,13 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
 
     return (
       <MetaTreeView
+        onDeleteModelProperty={this.onDeleteModelProperty}
+        onEditModelProperty={this.onEditModelProperty}
         menuContainer={this.options.appContainer}
         onDeleteProperty={this.onDeleteProperty}
         onEditProperty={this.onEditProperty}
         properties={properties}
+        externalId={externalId}
         displayName={rootName}
         model={model}
         dbId={dbId}
@@ -643,18 +856,72 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
   //
   //
   /////////////////////////////////////////////////////////
+  renderPopover () {
+
+    return (
+      <Popover  className={`${this.className} exports`}
+        title="Meta Exports"
+        id="exports-popover" >
+        <button
+          onClick={() => {
+            this.api.exportProperties('json')
+          }}
+          title=".json export">
+          <span className="fa fa-cloud-download"/>
+          <label>
+            MetaProperties.json
+          </label>
+        </button>
+        <button
+          onClick={() => {
+            this.api.exportProperties('csv')
+          }}
+          title=".csv export">
+          <span className="fa fa-cloud-download"/>
+          <label>
+            MetaProperties.csv
+          </label>
+        </button>
+      </Popover>
+    )
+  }
+
+  /////////////////////////////////////////////////////////
+  //
+  //
+  /////////////////////////////////////////////////////////
   renderContent () {
 
-    const {properties} = this.react.getState()
-
-    const content = properties.length
-      ? this.renderTreeView(properties)
-      : <div/>
+    const {api, model, properties, search} =
+      this.react.getState()
 
     return (
       <div className="content">
-        <ReactLoader show={!properties.length}/>
-        { content }
+        <ReflexContainer orientation='horizontal'>
+            <ReflexElement>
+              <ReactLoader show={!properties.length}/>
+              {
+                properties.length &&
+                this.renderTreeView(properties)
+              }
+            </ReflexElement>
+            {
+              search &&
+              <ReflexSplitter/>
+            }
+            {
+              search &&
+              <ReflexElement
+                propagateDimensions={true}
+                renderOnResize={true}
+                minSize={40}>
+                <Search viewer={this.viewer}
+                  model={model}
+                  api={api}
+                />
+              </ReflexElement>
+            }
+          </ReflexContainer>
       </div>
     )
   }
@@ -670,10 +937,7 @@ class MetaPropertiesExtension extends MultiModelExtensionBase {
         renderTitle={() => this.renderTitle(opts.docked)}
         showTitle={opts.showTitle}
         className={this.className}>
-
-        { this.renderControls() }
         { this.renderContent () }
-
       </WidgetContainer>
     )
   }

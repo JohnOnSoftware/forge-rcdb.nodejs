@@ -26,6 +26,17 @@ class TransformExtension extends ExtensionBase {
 
     this.transformedFragIdMap = {}
 
+    this.translateTool.on('selection', (selection) => {
+
+      const translateSelection = selection
+        ? Object.assign({}, selection, {
+            type: 'translate'
+          })
+        : null
+
+      this.emit('selection', translateSelection)
+    })
+
     this.translateTool.on('translate', (data) => {
 
       data.fragIds.forEach((fragId) => {
@@ -38,7 +49,8 @@ class TransformExtension extends ExtensionBase {
           translation: data.translation
         },
         fragIds: data.fragIds,
-        model: data.model
+        model: data.model,
+        dbIds: data.dbIds
       })
     })
 
@@ -48,6 +60,17 @@ class TransformExtension extends ExtensionBase {
       this._comboCtrl.container.classList.remove('active')
 
       this.emit('deactivate')
+    })
+
+    this.rotateTool.on('selection', (selection) => {
+
+      const rotateSelection = selection
+        ? Object.assign({}, selection, {
+            type: 'rotate'
+          })
+        : null
+
+      this.emit('selection', rotateSelection)
     })
 
     this.rotateTool.on('rotate', (data) => {
@@ -62,7 +85,8 @@ class TransformExtension extends ExtensionBase {
           rotation: data.rotation
         },
         fragIds: data.fragIds,
-        model: data.model
+        model: data.model,
+        dbIds: data.dbIds
       })
     })
 

@@ -21,37 +21,34 @@ export default class MetaTreeDelegate extends TreeDelegate {
     })
 
     this.contextMenu.on(
-      'context.property.edit', async (metaProperty) => {
+      'context.property.edit',
+      async (metaProperty, isModelOverride) => {
 
-        const newMetaProperty = await  this.emit(
-          'property.edit', metaProperty)
+        const newMetaProperty = await this.emit(
+          'property.edit',
+          metaProperty, isModelOverride)
 
         if (newMetaProperty) {
 
-          this.emit('node.update', newMetaProperty)
+          this.emit('node.update',
+            newMetaProperty)
         }
       })
 
     this.contextMenu.on(
-      'context.property.delete', async (metaProperty) => {
+      'context.property.delete',
+      async (metaProperty, isModelOverride) => {
 
         const deleted = await this.emit(
-          'property.delete', metaProperty)
+          'property.delete',
+          metaProperty, isModelOverride)
 
         if (deleted) {
 
-          this.emit('node.destroy', metaProperty.id)
+          this.emit('node.destroy',
+            metaProperty.id)
         }
       })
-  }
-
-  /////////////////////////////////////////////////////////////
-  //
-  //
-  /////////////////////////////////////////////////////////////
-  setProperties (properties) {
-
-    this.mapByCategory(properties)
   }
 
   /////////////////////////////////////////////////////////////
@@ -61,13 +58,15 @@ export default class MetaTreeDelegate extends TreeDelegate {
   createRootNode (data) {
 
     this.rootNode = new MetaTreeNode({
-
       displayName: data.displayName,
-      propsMap: this.propsMap,
+      externalId: data.externalId,
+      dbId: data.dbId.toString(),
+      component: data.component,
+      propsMap: data.propsMap,
       delegate: this,
-      group: true,
       parent: null,
       type: 'root',
+      group: true,
       id: 'root'
     })
 
@@ -120,10 +119,7 @@ export default class MetaTreeDelegate extends TreeDelegate {
 
     if (node.type === 'property') {
 
-      if (node.props.metaType !== undefined) {
-
-        this.contextMenu.show(event, node)
-      }
+      this.contextMenu.show(event, node)
     }
   }
 
@@ -140,9 +136,9 @@ export default class MetaTreeDelegate extends TreeDelegate {
   //
   //
   /////////////////////////////////////////////////////////////
-  mapByCategory (properties) {
+  mapPropsByCategory (properties) {
 
-    this.propsMap = {}
+    const propsMap = {}
 
     properties.forEach((prop) => {
 
@@ -152,11 +148,22 @@ export default class MetaTreeDelegate extends TreeDelegate {
 
       if (category.indexOf('__') !== 0) {
 
-        this.propsMap[category] =
-          this.propsMap[category] || []
+        propsMap[category] = propsMap[category] || []
 
-        this.propsMap[category].push(prop)
+        propsMap[category].push(prop)
       }
     })
+
+    // sort props by displayName in each category
+
+    for (let category in propsMap) {
+
+      propsMap[category] = _.sortBy(
+        propsMap[category], (prop) => {
+          return prop.displayName
+        })
+    }
+
+    return propsMap
   }
 }

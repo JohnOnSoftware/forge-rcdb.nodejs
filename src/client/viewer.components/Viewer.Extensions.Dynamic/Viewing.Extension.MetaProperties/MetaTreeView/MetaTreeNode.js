@@ -5,41 +5,42 @@ import ReactDOM from 'react-dom'
 import Label from 'Label'
 import React from 'react'
 
-///////////////////////////////////////////////////////////////////////////////
-//
-//
-///////////////////////////////////////////////////////////////////////////////
 export default class MetaTreeNode extends EventsEmitter {
 
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   constructor (props) {
 
     super ()
 
+    this.onModelDelete = this.onModelDelete.bind(this)
+    this.onModelEdit = this.onModelEdit.bind(this)
     this.onExpand = this.onExpand.bind(this)
     this.onDelete = this.onDelete.bind(this)
     this.onEdit = this.onEdit.bind(this)
 
     this.on('expand', this.onExpand)
 
-    this.delegate     = props.delegate
-    this.parent       = props.parent
-    this.group        = props.group
-    this.type         = props.type
-    this.id           = props.id
+    this.externalId = props.externalId
+    this.component  = props.component
+    this.delegate   = props.delegate
+    this.parent     = props.parent
+    this.group      = props.group
+    this.type       = props.type
+    this.dbId       = props.dbId
+    this.id         = props.id
 
     this.children = []
 
     this.props = props
   }
 
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   onExpand () {
 
     this.off('expand', this.onExpand)
@@ -47,10 +48,10 @@ export default class MetaTreeNode extends EventsEmitter {
     this.loadChildren()
   }
 
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   mount (domContainer) {
 
     domContainer.className = 'treenode-container'
@@ -64,23 +65,24 @@ export default class MetaTreeNode extends EventsEmitter {
     this.collapse()
   }
 
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   update (metaProperty) {
 
-    this.props = Object.assign({}, this.props, metaProperty)
+    this.props = Object.assign({},
+      this.props, metaProperty)
 
     this.reactNode = ReactDOM.render(
       <ReactTreeNode {...this.props}/>,
       this.domContainer)
   }
 
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   destroy () {
 
     if (this.children) {
@@ -98,10 +100,10 @@ export default class MetaTreeNode extends EventsEmitter {
       'node.destroy', this.id)
   }
 
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   expand () {
 
     const target =
@@ -115,10 +117,10 @@ export default class MetaTreeNode extends EventsEmitter {
     this.emit('expand')
   }
 
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   //
   //
-  /////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
   collapse () {
 
     const target =
@@ -136,45 +138,82 @@ export default class MetaTreeNode extends EventsEmitter {
   /////////////////////////////////////////////////////////
   toMetaProperty (props = this.props) {
 
+    const baseProperty = {
+      displayCategory: props.displayCategory,
+      displayValue: props.displayValue,
+      displayName: props.displayName,
+      externalId: props.externalId,
+      component: props.component,
+      metaType: props.metaType,
+      dbId: props.dbId,
+      id: props.id
+    }
+
     switch (props.metaType) {
-
-      case 'Text':
-
-        return {
-          displayCategory: props.displayCategory,
-          displayValue: props.displayValue,
-          displayName: props.displayName,
-          metaType: props.metaType,
-          dbId: props.dbId,
-          id: props.id
-        }
 
       case 'Link':
 
-        return {
-          displayCategory: props.displayCategory,
-          displayValue: props.displayValue,
-          displayName: props.displayName,
-          metaType: props.metaType,
-          link: props.link,
-          dbId: props.dbId,
-          id: props.id
-        }
+        return Object.assign({}, baseProperty, {
+          link: props.link
+        })
 
       case 'File':
 
-        return {
-          displayCategory: props.displayCategory,
-          displayValue: props.displayValue,
-          displayName: props.displayName,
-          metaType: props.metaType,
+        return Object.assign({}, baseProperty, {
           filelink: props.filelink,
           filename: props.filename,
           filesize: props.filesize,
-          fileId:  props.fileId,
-          dbId: props.dbId,
-          id: props.id
-        }
+          fileId:  props.fileId
+        })
+
+      case 'Text':
+
+        return baseProperty
+
+      default:
+
+        return Object.assign({}, baseProperty, {
+          displayCategory:
+            props.displayCategory || 'Other',
+          isOverride: true,
+          metaType: 'Text'
+        })
+    }
+  }
+
+  /////////////////////////////////////////////////////////
+  //
+  //
+  /////////////////////////////////////////////////////////
+  async onModelEdit (props) {
+
+    const metaProperty = await this.delegate.emit(
+      'property.edit',
+      this.toMetaProperty(props), true)
+
+    if (metaProperty) {
+
+      this.delegate.emit(
+        'node.update',
+        metaProperty)
+    }
+  }
+
+  /////////////////////////////////////////////////////////
+  //
+  //
+  /////////////////////////////////////////////////////////
+  async onModelDelete (props) {
+
+    const metaProperty = await this.delegate.emit(
+      'property.delete',
+      this.toMetaProperty(props), true)
+
+    if (metaProperty) {
+
+      this.delegate.emit(
+        'node.destroy',
+        metaProperty.id)
     }
   }
 
@@ -184,14 +223,15 @@ export default class MetaTreeNode extends EventsEmitter {
   /////////////////////////////////////////////////////////
   async onEdit (props) {
 
-    const newMetaProperty = await this.delegate.emit(
+    const metaProperty = await this.delegate.emit(
       'property.edit',
       this.toMetaProperty(props))
 
-    if (newMetaProperty) {
+    if (metaProperty) {
 
       this.delegate.emit(
-        'node.update', newMetaProperty)
+        'node.update',
+        metaProperty)
     }
   }
 
@@ -201,13 +241,15 @@ export default class MetaTreeNode extends EventsEmitter {
   /////////////////////////////////////////////////////////
   async onDelete (props) {
 
-    const deleted = await this.delegate.emit(
+    const metaProperty = await this.delegate.emit(
       'property.delete',
       this.toMetaProperty(props))
 
-    if (deleted) {
+    if (metaProperty) {
 
-      this.delegate.emit('node.destroy', props.id)
+      this.delegate.emit(
+        'node.destroy',
+        metaProperty.id)
     }
   }
 
@@ -230,9 +272,12 @@ export default class MetaTreeNode extends EventsEmitter {
 
           const childNode = new MetaTreeNode({
             properties: this.props.propsMap[category],
+            externalId: this.externalId,
+            component: this.component,
             delegate: this.delegate,
             displayName: category,
             type: 'category',
+            dbId: this.dbId,
             id: this.guid(),
             parent: this,
             group: true
@@ -253,10 +298,16 @@ export default class MetaTreeNode extends EventsEmitter {
           this.props.properties.map((prop) => {
 
             const fullProp = Object.assign({}, prop, {
+              onModelDelete: this.onModelDelete,
+              onModelEdit: this.onModelEdit,
+              externalId: this.externalId,
+              id: prop.id || this.guid(),
+              component: this.component,
               delegate: this.delegate,
               onDelete: this.onDelete,
               onEdit: this.onEdit,
               type: 'property',
+              dbId: this.dbId,
               parent: this,
               group: false
             })
@@ -277,15 +328,28 @@ class ReactTreeNode extends React.Component {
   //
   //
   /////////////////////////////////////////////////////////
-  renderNativeProperty () {
+  renderModelProperty () {
 
     return (
       <div className="treenode">
         <Label className="meta-name"
           text={this.props.displayName}
         />
-        <Label className="meta-value"
+
+        <div className="separator"/>
+
+        <Label className="meta-value editable"
           text={this.props.displayValue.toString()}
+        />
+        <span className="fa fa-edit"
+          onClick={() => {
+            this.props.onModelEdit(this.props)
+          }}
+        />
+        <span className="fa fa-times"
+          onClick={() => {
+            this.props.onModelDelete(this.props)
+          }}
         />
       </div>
     )
@@ -302,6 +366,9 @@ class ReactTreeNode extends React.Component {
         <Label className="meta-name"
           text={this.props.displayName}
         />
+
+        <div className="separator"/>
+
         <Label className="meta-value editable"
           text={this.props.displayValue.toString()}
         />
@@ -326,6 +393,9 @@ class ReactTreeNode extends React.Component {
         <Label className="meta-name"
           text={this.props.displayName}
         />
+
+        <div className="separator"/>
+
         <div className="meta-value meta-link editable">
           <a target="_blank" href={this.props.link}
             onClick={() => this.onGoToLink (this.props.link)}>
@@ -372,6 +442,9 @@ class ReactTreeNode extends React.Component {
         <Label className="meta-name"
           text={this.props.displayName}
         />
+
+        <div className="separator"/>
+
         <div className="meta-value meta-file editable">
           <Spinner spinnerName='cube-grid'
             style={spinnerStyle}/>
@@ -392,6 +465,10 @@ class ReactTreeNode extends React.Component {
     )
   }
 
+  /////////////////////////////////////////////////////////
+  //
+  //
+  /////////////////////////////////////////////////////////
   onDownloadFile (filename, href) {
 
     let a = document.createElement('a')
@@ -411,16 +488,16 @@ class ReactTreeNode extends React.Component {
     switch (this.props.metaType) {
 
       case 'File':
-        return this.renderFileProperty ()
+        return this.renderFileProperty()
 
       case 'Link':
-        return this.renderLinkProperty ()
+        return this.renderLinkProperty()
 
       case 'Text':
-        return this.renderTextProperty ()
+        return this.renderTextProperty()
 
       default:
-        return this.renderNativeProperty ()
+        return this.renderModelProperty()
     }
   }
 

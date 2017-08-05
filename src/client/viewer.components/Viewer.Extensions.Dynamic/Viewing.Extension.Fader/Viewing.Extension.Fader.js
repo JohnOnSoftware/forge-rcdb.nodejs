@@ -2,8 +2,8 @@
 // ForgeFader signal attenuation calculator Forge viewer extension
 // By Jeremy Tammik, Autodesk Inc, 2017-03-28
 /////////////////////////////////////////////////////////////////
+import MultiModelExtensionBase from 'Viewer.MultiModelExtensionBase'
 import FaderCoreExtension from './Viewing.Extension.Fader.Core'
-import ExtensionBase from 'Viewer.ExtensionBase'
 import WidgetContainer from 'WidgetContainer'
 import HotSpotCommand from 'HotSpot.Command'
 import ViewerTooltip from 'Viewer.Tooltip'
@@ -16,16 +16,14 @@ import Slider from 'rc-slider'
 import Switch from 'Switch'
 import React from 'react'
 
-class FaderExtension extends ExtensionBase
-{
+class FaderExtension extends MultiModelExtensionBase {
+
   /////////////////////////////////////////////////////////////////
   // Class constructor
   /////////////////////////////////////////////////////////////////
   constructor (viewer, options) {
 
     super (viewer, options)
-
-    this.onSelection = this.onSelection.bind(this)
   }
 
   /////////////////////////////////////////////////////////////////
@@ -33,17 +31,23 @@ class FaderExtension extends ExtensionBase
   /////////////////////////////////////////////////////////////////
   load () {
 
+    this.viewer.setGroundReflection (false)
+    this.viewer.setGroundShadow (false)
+
     this.react = this.options.react
 
-    this.react.pushRenderExtension(this)
+    this.react.setState({
 
-    this.viewer.addEventListener(
-      Autodesk.Viewing.MODEL_ROOT_LOADED_EVENT, (e) => {
+      fader: null
 
-        this.options.loader.show(false)
-      })
+    }).then(async() => {
 
-    this.viewer.loadExtension(FaderCoreExtension)
+      this.react.pushRenderExtension(this)
+
+      this.viewer.loadExtension(FaderCoreExtension)
+
+      this.onEnableFader(true)
+    })
 
     this.hotSpotCommand = new HotSpotCommand (this.viewer, {
       animate: true
@@ -61,6 +65,26 @@ class FaderExtension extends ExtensionBase
 
     this.eventTool = new EventTool(this.viewer)
 
+    this.eventTool.on ('singleclick', (event) => {
+
+      const hitTest = this.viewer.clientToWorld(
+        event.canvasX, event.canvasY, true)
+
+      if (hitTest) {
+
+        const it = this.viewer.model.getData().instanceTree
+
+        const nodeName = it.getNodeName(hitTest.dbId)
+
+        if ((/^.*(floor).*$/gi).test(nodeName)) {
+
+          this.faderCore.hitTest = hitTest
+
+          this.update()
+        }
+      }
+    })
+
     this.eventTool.on('mousemove', (event) => {
 
       const hitTest = this.viewer.clientToWorld(
@@ -70,8 +94,9 @@ class FaderExtension extends ExtensionBase
 
         if (this.dynamic) {
 
-          this.faderCore.computeAttenuationAt(
-            hitTest, true)
+          this.faderCore.hitTest = hitTest
+
+          this.update(true)
         }
 
         this.tooltip.activate()
@@ -81,8 +106,6 @@ class FaderExtension extends ExtensionBase
         this.tooltip.deactivate()
       }
     })
-
-    this.onEnableFader(true)
 
     console.log('Viewing.Extension.Fader loaded')
 
@@ -117,7 +140,25 @@ class FaderExtension extends ExtensionBase
 
     this.tooltip.deactivate()
 
+    this.eventTool.off()
+
     return true
+  }
+
+  /////////////////////////////////////////////////////////
+  //
+  //
+  /////////////////////////////////////////////////////////
+  onModelRootLoaded () {
+
+    const nav = this.viewer.navigation
+
+    nav.toPerspective()
+
+    this.viewer.autocam.setHomeViewFrom(
+      nav.getCamera())
+
+    this.options.loader.show(false)
   }
 
   /////////////////////////////////////////////////////////
@@ -150,10 +191,6 @@ class FaderExtension extends ExtensionBase
 
     if (checked) {
 
-      this.viewer.addEventListener(
-        Autodesk.Viewing.AGGREGATE_SELECTION_CHANGED_EVENT,
-        this.onSelection)
-
       this.eventTool.activate()
 
       this.viewer.loadExtension(
@@ -182,27 +219,11 @@ class FaderExtension extends ExtensionBase
           this.selectedDbId = data.dbId
       })
 
-      this.faderCore.on('attenuation.bounds',
-        (bounds) => {
-
-          this.react.setState({
-            data: [
-              {value: bounds.min},
-              {value: bounds.max}
-            ],
-            guid: this.guid()
-          })
-      })
-
       this.react.setState({
         fader: true
       })
 
     } else {
-
-      this.viewer.removeEventListener(
-        Autodesk.Viewing.AGGREGATE_SELECTION_CHANGED_EVENT,
-        this.onSelection)
 
       this.hotSpotCommand.removeHotSpots ()
 
@@ -257,13 +278,33 @@ class FaderExtension extends ExtensionBase
   //
   //
   /////////////////////////////////////////////////////////
+  update () {
+
+    const attenuation = this.faderCore.update()
+
+    if (attenuation) {
+
+      this.react.setState({
+        data: [
+          {value: attenuation.min},
+          {value: attenuation.max}
+        ],
+        guid: this.guid()
+      })
+    }
+  }
+
+  /////////////////////////////////////////////////////////
+  //
+  //
+  /////////////////////////////////////////////////////////
   async setDocking (docked) {
 
     const id = FaderExtension.ExtensionId
 
     if (docked) {
 
-    await this.react.popRenderExtension(id)
+      await this.react.popRenderExtension(id)
 
       this.react.pushViewerPanel(this, {
         height: 615,
@@ -311,7 +352,12 @@ class FaderExtension extends ExtensionBase
 
     const { value, dragging, offset } = props
 
-    this.faderCore.attenuationPerMeterInAir = value
+    if (value != this.faderCore.attenuationPerMeterInAir) {
+
+      this.faderCore.attenuationPerMeterInAir = value
+
+      const attenuation = this.update()
+    }
 
     return (
       <Tooltip
@@ -333,7 +379,12 @@ class FaderExtension extends ExtensionBase
 
     const { value, dragging, offset } = props
 
-    this.faderCore.attenuationPerWall = value
+    if (value != this.faderCore.attenuationPerWall) {
+
+      this.faderCore.attenuationPerWall = value
+
+      this.update()
+    }
 
     return (
       <Tooltip
@@ -355,7 +406,12 @@ class FaderExtension extends ExtensionBase
 
     const { value, dragging, offset } = props
 
-    this.faderCore.gridDensity = value
+    if (value != this.faderCore.gridDensity) {
+
+      this.faderCore.gridDensity = value
+
+      this.update()
+    }
 
     return (
       <Tooltip
@@ -405,7 +461,11 @@ class FaderExtension extends ExtensionBase
   /////////////////////////////////////////////////////////
   renderContent () {
 
-    const { fader, guid } = this.react.getState()
+    const {
+      attenuationPerMeterInAir,
+      fader,
+      guid
+      } = this.react.getState()
 
     return (
       <div className="settings">
